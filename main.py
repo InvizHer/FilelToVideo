@@ -1,9 +1,10 @@
 # main.py
 
 from pyrogram import Client, filters
-import math, time, os, asyncio, logging
-from typing import Tuple
+import asyncio
+import os
 import shlex
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ status = False
 
 # Helper functions
 
-async def execute(cmnd: str) -> Tuple[str, str, int, int]:
+async def execute(cmnd: str) -> tuple:
     cmnds = shlex.split(cmnd)
     process = await asyncio.create_subprocess_exec(
         *cmnds,
@@ -25,87 +26,26 @@ async def execute(cmnd: str) -> Tuple[str, str, int, int]:
         stderr=asyncio.subprocess.PIPE
     )
     stdout, stderr = await process.communicate()
-    return (stdout.decode('utf-8', 'replace').strip(),
-            stderr.decode('utf-8', 'replace').strip(),
-            process.returncode,
-            process.pid)
+    return (
+        stdout.decode('utf-8', 'replace').strip(),
+        stderr.decode('utf-8', 'replace').strip(),
+        process.returncode,
+        process.pid
+    )
 
 async def clean_up(input1, input2=None):
     try:
         os.remove(input1)
         logger.info(f"Deleted: {input1}")
-    except:
-        logger.info(f"Delete Failed: {input1}")
-        pass
-    try:
-        if input2:
+    except Exception as e:
+        logger.info(f"Delete Failed: {input1} - {e}")
+
+    if input2:
+        try:
             os.remove(input2)
             logger.info(f"Deleted: {input2}")
-    except:
-        if input2:
-            logger.info(f"Delete Failed: {input2}")
-        pass
-
-async def progress_for_pyrogram(current, total, ud_type, message, start):
-    now = time.time()
-    diff = now - start
-    if round(diff % 10.00) == 0 or current == total:
-        percentage = current * 100 / total
-        speed = current / diff
-        elapsed_time = round(diff) * 1000
-        time_to_completion = round((total - current) / speed) * 1000
-        estimated_total_time = elapsed_time + time_to_completion
-
-        elapsed_time = TimeFormatter(milliseconds=elapsed_time)
-        estimated_total_time = TimeFormatter(milliseconds=estimated_total_time)
-
-        progress = "[{0}{1}] \n".format(
-            ''.join(["●" for i in range(math.floor(percentage / 5))]),
-            ''.join(["○" for i in range(20 - math.floor(percentage / 5))])
-        )
-
-        tmp = progress + Config2.PROGRESS.format(
-            round(percentage, 2),
-            humanbytes(current),
-            humanbytes(total),
-            humanbytes(speed),
-            estimated_total_time if estimated_total_time != '' else "0 s"
-        )
-        try:
-            await message.edit(
-                text="**{}**\n\n {}".format(
-                    ud_type,
-                    tmp
-                ),
-                parse_mode='markdown'
-            )
-        except:
-            pass
-
-def humanbytes(size):
-    # https://stackoverflow.com/a/49361727/4723940
-    # 2**10 = 1024
-    if not size:
-        return ""
-    power = 2 ** 10
-    n = 0
-    Dic_powerN = {0: ' ', 1: 'Ki', 2: 'Mi', 3: 'Gi', 4: 'Ti'}
-    while size > power:
-        size /= power
-        n += 1
-    return str(round(size, 2)) + " " + Dic_powerN[n] + 'B'
-
-def TimeFormatter(milliseconds: int) -> str:
-    seconds, milliseconds = divmod(int(milliseconds), 1000)
-    minutes, seconds = divmod(seconds, 60)
-    hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
-    tmp = ((str(days) + "d, ") if days else "") + \
-          ((str(hours) + "h, ") if hours else "") + \
-          ((str(minutes) + "m, ") if minutes else "") + \
-          ((str(seconds) + "s, ") if seconds else "") + \
-          ((str(milliseconds) + "ms, ") if milliseconds else "")
-    return tmp[:-2]
+        except Exception as e:
+            logger.info(f"Delete Failed: {input2} - {e}")
 
 # Main bot logic
 
@@ -126,23 +66,35 @@ async def convert_to_video(bot, message):
     try:
         # Download the file
         msg = await message.reply_text(text="⬇️ Downloading the file...")
-        # Add your logic to download the file using download_from_url.py or any other method
+        file_path = await bot.download_media(message)
+        await msg.edit_text(text="✅ File downloaded")
         
         # Generate thumbnail
-        await msg.edit(text="🌄 Generating thumbnail...")
-        # Add your logic to generate thumbnail using thumbnail_video.py or any other method
+        await msg.edit_text(text="🌄 Generating thumbnail...")
+        thumbnail_path = f"{file_path}.jpg"
+        cmd = f"ffmpeg -i {file_path} -vframes 1 -an -s 640x360 -ss 5 {thumbnail_path}"
+        await execute(cmd)
+        await msg.edit_text(text="✅ Thumbnail generated")
+        
+        # Convert file to video
+        await msg.edit_text(text="🔄 Converting file to video...")
+        output_path = f"{file_path}.mp4"
+        cmd = f"ffmpeg -i {file_path} -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -ac 2 {output_path}"
+        await execute(cmd)
+        await msg.edit_text(text="✅ File converted to video")
         
         # Send the video
-        await msg.edit(text="⬆️ Uploading as video...")
-        # Add your logic to upload the video using Pyrogram
-        
+        await msg.edit_text(text="⬆️ Uploading as video...")
+        await message.reply_video(video=output_path, thumb=thumbnail_path)
         await msg.delete()
+        
         # Clean up temporary files
-        # Add your logic to clean up using tools.py or any other method
+        await clean_up(file_path)
+        await clean_up(thumbnail_path)
         
         status = False
     except Exception as e:
         status = False
-        await msg.edit(text=f"❌ Failed to convert the file to video.\nError: {str(e)}")
+        await msg.edit_text(text=f"❌ Failed to convert the file to video.\nError: {str(e)}")
 
 app.run()

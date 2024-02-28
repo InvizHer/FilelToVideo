@@ -3,6 +3,7 @@
 from pyrogram import Client, filters
 import math, time, os, asyncio, logging
 from typing import Tuple
+import shlex
 
 logger = logging.getLogger(__name__)
 
@@ -10,6 +11,9 @@ api_id = 10098309
 api_hash = "aaacac243dddc9f0433c89cab8efe323"
 bot_token = "5181191526:AAHhsUwMaopLJj0xYSsYVXThPRowuX02gv8"
 app = Client("video_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
+
+# Define status variable
+status = False
 
 # Helper functions
 

@@ -11,9 +11,9 @@ COPY . /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Set environment variables
-ENV API_ID="your_api_id"
-ENV API_HASH="your_api_hash"
-ENV BOT_TOKEN="your_bot_token"
+ENV API_ID="10098309"
+ENV API_HASH="aaacac243dddc9f0433c89cab8efe323"
+ENV BOT_TOKEN="5181191526:AAHhsUwMaopLJj0xYSsYVXThPRowuX02gv8"
 
 # Expose the port the app runs on
 EXPOSE 80

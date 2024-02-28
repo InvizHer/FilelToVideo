@@ -1,2 +1,2 @@
 pyrogram
-git+https://github.com/FFmpeg/FFmpeg@master
+https://github.com/FFmpeg/FFmpeg@master
